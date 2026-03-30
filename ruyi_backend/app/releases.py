@@ -129,6 +129,54 @@ async def get_latest_pm_releases(
     return _get_latest_releases(stats, pm_url_generator)
 
 
+def _ide_plugin_url_generator(
+    s: ReleaseDownloadStats,
+    github_repo: str,
+    filename: str,
+    mirror_subdir: str,
+) -> dict[str, list[str]]:
+    tag = s["tag"]
+    return {
+        "all/all": [
+            f"https://github.com/{github_repo}/releases/download/{tag}/{filename}",
+            f"https://mirrors.iscas.ac.cn/ruyisdk/ide/plugins/{mirror_subdir}/{filename}",
+        ],
+    }
+
+
+@router.get("/latest-ide-plugins-vscode")
+async def get_latest_ide_plugins_vscode(
+    cfg: DIEnvConfig,
+    cache: DICacheStore,
+) -> LatestReleasesV1:
+    stats = cast(list[ReleaseDownloadStats], await cache.get(KEY_GITHUB_RELEASE_STATS))
+    repo = cfg.github.ruyi_ide_vscode_repo
+
+    def url_generator(s: ReleaseDownloadStats) -> dict[str, list[str]]:
+        filename = f"ruyisdk-vscode-extension-{s['tag']}.vsix"
+        return _ide_plugin_url_generator(s, repo, filename, "vscode")
+
+    return _get_latest_releases(stats, url_generator)
+
+
+@router.get("/latest-ide-plugins-eclipse")
+async def get_latest_ide_plugins_eclipse(
+    cfg: DIEnvConfig,
+    cache: DICacheStore,
+) -> LatestReleasesV1:
+    stats = cast(list[ReleaseDownloadStats], await cache.get(KEY_GITHUB_RELEASE_STATS))
+    repo = cfg.github.ruyi_ide_eclipse_repo
+
+    def url_generator(s: ReleaseDownloadStats) -> dict[str, list[str]]:
+        # Eclipse tags use a "v" prefix (e.g. "v0.1.2") but the zip filename
+        # does not include it (e.g. "ruyisdk-eclipse-plugins-0.1.2.zip").
+        ver = s["tag"].removeprefix("v")
+        filename = f"ruyisdk-eclipse-plugins-{ver}.zip"
+        return _ide_plugin_url_generator(s, repo, filename, "eclipse")
+
+    return _get_latest_releases(stats, url_generator)
+
+
 @router.get("/changelog/news/{tag}.json")
 async def get_news_changelog(
     tag: str,

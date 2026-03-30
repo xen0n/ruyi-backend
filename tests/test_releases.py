@@ -1,10 +1,11 @@
+import datetime
 import json
 from typing import Any, List, cast
 from unittest.mock import AsyncMock
 
 import pytest
 
-from ruyi_backend.app.releases import _get_latest_releases
+from ruyi_backend.app.releases import _get_latest_releases, _ide_plugin_url_generator
 from ruyi_backend.components.github_stats import (
     ReleaseDownloadStats,
     query_release_downloads,
@@ -23,7 +24,13 @@ def release_stats(ruyi_file: RuyiFileFixtureFactory) -> List[ReleaseDownloadStat
 
 def test_get_latest_releases(release_stats: List[ReleaseDownloadStats]) -> None:
     stats: List[ReleaseDownloadStats] = release_stats
-    result: LatestReleasesV1 = _get_latest_releases(stats, "foo/bar")
+
+    def pm_url_generator(s: ReleaseDownloadStats) -> dict[str, list[str]]:
+        from ruyi_backend.app.releases import _generate_download_urls
+
+        return _generate_download_urls(s, "foo/bar")
+
+    result: LatestReleasesV1 = _get_latest_releases(stats, pm_url_generator)
     channels = result.channels
     assert set(channels.keys()) == {"stable", "testing"}
 
@@ -62,6 +69,48 @@ def test_get_latest_releases(release_stats: List[ReleaseDownloadStats]) -> None:
         "linux/x86_64": [
             "https://github.com/foo/bar/releases/download/0.32.0-beta.20250421/ruyi-0.32.0-beta.20250421.amd64",
             "https://mirror.iscas.ac.cn/ruyisdk/ruyi/tags/0.32.0-beta.20250421/ruyi-0.32.0-beta.20250421.amd64",
+        ],
+    }
+
+
+def test_ide_plugin_url_generator() -> None:
+    # VSCode-style (tag matches version in filename)
+    s_vscode: ReleaseDownloadStats = {
+        "tag": "0.1.2",
+        "date": datetime.datetime(2026, 3, 3, tzinfo=datetime.timezone.utc),
+        "assets": [],
+    }
+    urls = _ide_plugin_url_generator(
+        s_vscode,
+        "ruyisdk/ruyisdk-vscode-extension",
+        "ruyisdk-vscode-extension-0.1.2.vsix",
+        "vscode",
+    )
+    assert urls == {
+        "all/all": [
+            "https://github.com/ruyisdk/ruyisdk-vscode-extension/releases/download/0.1.2/ruyisdk-vscode-extension-0.1.2.vsix",
+            "https://mirrors.iscas.ac.cn/ruyisdk/ide/plugins/vscode/ruyisdk-vscode-extension-0.1.2.vsix",
+        ],
+    }
+
+    # Eclipse-style (v-prefixed tag, but filename has no v)
+    s_eclipse: ReleaseDownloadStats = {
+        "tag": "v0.1.2",
+        "date": datetime.datetime(2026, 3, 28, tzinfo=datetime.timezone.utc),
+        "assets": [],
+    }
+    ver = s_eclipse["tag"].removeprefix("v")
+    filename = f"ruyisdk-eclipse-plugins-{ver}.zip"
+    urls = _ide_plugin_url_generator(
+        s_eclipse,
+        "ruyisdk/ruyisdk-eclipse-plugins",
+        filename,
+        "eclipse",
+    )
+    assert urls == {
+        "all/all": [
+            "https://github.com/ruyisdk/ruyisdk-eclipse-plugins/releases/download/v0.1.2/ruyisdk-eclipse-plugins-0.1.2.zip",
+            "https://mirrors.iscas.ac.cn/ruyisdk/ide/plugins/eclipse/ruyisdk-eclipse-plugins-0.1.2.zip",
         ],
     }
 
