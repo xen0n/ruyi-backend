@@ -105,6 +105,28 @@ class ReleaseWorkerConfig(BaseModel):
     rsync_remote_pass: str = ""
 
 
+class PublishConfig(BaseModel):
+    """Configuration for the package publishing pipeline."""
+
+    staging_dir: str = ""
+    """Directory for staging uploaded distfiles before mirror sync."""
+
+    committed_dir: str = ""
+    """Directory for distfiles after successful mirror sync."""
+
+    mirror_rsync_url: str = ""
+    """Rsync URL for the distfile mirror (e.g. rsync://host/ruyisdk/dist/)."""
+
+    mirror_rsync_pass: str = ""
+    """Rsync password for the mirror, if any."""
+
+    packages_index_dir: str = ""
+    """Local clone path of the packages-index repository."""
+
+    github_token_for_pr: str = ""
+    """GitHub token with repo scope, for opening PRs to packages-index."""
+
+
 class CLIConfig(BaseModel):
     """Configuration for the CLI management client."""
 
@@ -127,6 +149,7 @@ class EnvConfig(BaseSettings, case_sensitive=False):
     es_main: ESConfig = ESConfig()
     github: GitHubConfig = GitHubConfig()
     http: HTTPConfig = HTTPConfig()
+    publish: PublishConfig = PublishConfig()
     pypi: PyPIConfig = PyPIConfig()
 
 

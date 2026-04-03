@@ -232,3 +232,32 @@ download_stats_daily_pypi = Table(
         "created_at", TIMESTAMP(timezone=False), server_default=func.current_timestamp()
     ),
 )
+
+
+class ModelPackagePublishAuditLog(TypedDict):
+    id: NotRequired[int]
+    user: str
+    action: str
+    package_info: dict[str, object]
+    distfile_name: str
+    status: str
+    details: dict[str, object]
+    created_at: NotRequired[datetime.datetime]
+
+
+package_publish_audit_log = Table(
+    "package_publish_audit_log",
+    metadata,
+    Column("id", BIGINT(), primary_key=True, autoincrement=True),
+    Column("user", VARCHAR(255), nullable=False),
+    Column("action", VARCHAR(64), nullable=False),
+    Column("package_info", JSON(), nullable=False),
+    Column("distfile_name", VARCHAR(1024), nullable=False),
+    Column("status", VARCHAR(32), nullable=False),
+    Column("details", JSON(), nullable=False),
+    Column(
+        "created_at", TIMESTAMP(timezone=False), server_default=func.current_timestamp()
+    ),
+    CheckConstraint("JSON_VALID(`package_info`)"),
+    CheckConstraint("JSON_VALID(`details`)"),
+)

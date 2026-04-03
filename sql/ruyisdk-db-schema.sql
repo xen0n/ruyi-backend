@@ -86,6 +86,21 @@ CREATE TABLE `repo_telemetry_aggregated_events` (
     KEY `idx_repo_telemetry_aggregated_events_pkg_name` (`pkg_name`)
 ) ENGINE InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+CREATE TABLE `package_publish_audit_log` (
+    `id` BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
+    `user` VARCHAR(255) NOT NULL COMMENT 'Username of the publisher',
+    `action` VARCHAR(64) NOT NULL COMMENT 'Action type: upload, reject, commit',
+    `package_info` JSON NOT NULL COMMENT 'Package metadata: category, name, version',
+    `distfile_name` VARCHAR(1024) NOT NULL COMMENT 'Name of the distfile',
+    `status` VARCHAR(32) NOT NULL COMMENT 'Outcome: success, failure',
+    `details` JSON NOT NULL COMMENT 'Additional details: errors, checksums, etc.',
+    `created_at` TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
+    CHECK (JSON_VALID(`package_info`)),
+    CHECK (JSON_VALID(`details`)),
+    KEY `idx_package_publish_audit_log_user_ctime` (`user`, `created_at`),
+    KEY `idx_package_publish_audit_log_ctime` (`created_at`)
+) ENGINE InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 CREATE TABLE `download_stats_daily_pypi` (
     `id` BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
     `name` VARCHAR(255) NOT NULL COMMENT 'The name of the PyPI package',
