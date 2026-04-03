@@ -24,13 +24,16 @@ from ..components.pypi_stats import (
     sum_pypi_download_stats,
 )
 from ..components.telemetry_processor import process_telemetry_data
+from ..components.repo_telemetry_processor import process_repo_telemetry_data
 from ..config.env import DIEnvConfig
 from ..db.conn import DIMainDB
 from ..db.schema import telemetry_raw_uploads, ModelTelemetryRawUpload
+from ..db.schema import repo_telemetry_raw_uploads, ModelRepoTelemetryRawUpload
 from ..es import DIMainES
 from ..gh import DIGitHub
 from ..schema.admin import ReqProcessTelemetry
 from ..schema.client_telemetry import UploadPayload
+from ..schema.repo_telemetry import RepoUploadPayload
 from ..components.github_stats import query_org_stats, query_release_downloads
 
 router = APIRouter(prefix="/admin")
@@ -77,6 +80,37 @@ async def admin_process_telemetry(
                 await conn.execute(upd)
 
             # Commit the transaction
+            await txn.commit()
+
+    # Process repo-scoped telemetry data
+    async with main_db.connect() as conn:
+        async with conn.begin() as txn:
+            sel = select(
+                repo_telemetry_raw_uploads.c.id,
+                repo_telemetry_raw_uploads.c.raw_events,
+            ).where(
+                repo_telemetry_raw_uploads.c.created_at >= req.time_start,
+                repo_telemetry_raw_uploads.c.created_at < req.time_end,
+                repo_telemetry_raw_uploads.c.is_processed == False,  # noqa: E712  # DSL usage
+            )
+            repo_raw_events: list[ModelRepoTelemetryRawUpload] = []
+            repo_upload_ids: list[int] = []
+            async for row in await conn.stream(sel):
+                repo_upload_ids.append(row[0])
+                repo_raw_events.append(row[1])
+
+            repo_events = [RepoUploadPayload.model_validate(x) for x in repo_raw_events]
+
+            await process_repo_telemetry_data(conn, repo_events)
+
+            if repo_upload_ids:
+                upd = (
+                    update(repo_telemetry_raw_uploads)
+                    .where(repo_telemetry_raw_uploads.c.id.in_(repo_upload_ids))
+                    .values(is_processed=True)
+                )
+                await conn.execute(upd)
+
             await txn.commit()
 
     last_processed = datetime.datetime.now(datetime.timezone.utc)

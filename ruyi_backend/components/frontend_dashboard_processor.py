@@ -25,6 +25,7 @@ from ..components.github_stats import (
     merge_download_counts,
 )
 from ..db.schema import (
+    repo_telemetry_aggregated_events,
     telemetry_aggregated_events,
     telemetry_installation_infos,
 )
@@ -201,6 +202,32 @@ async def crunch_and_cache_dashboard_numbers(
         for k, v in list(sorted_command_counts.items())[:10]
     }
 
+    # count package installs grouped by package name
+    package_counts: dict[str, int] = {}
+    async for ev in await db.stream(
+        select(
+            repo_telemetry_aggregated_events.c.pkg_name,
+            repo_telemetry_aggregated_events.c.count,
+        ).where(
+            repo_telemetry_aggregated_events.c.kind == "repo:package-install-v1",
+        ),
+    ):
+        pkg_name = ev[0]
+        count = ev[1]
+        package_counts[pkg_name] = package_counts.get(pkg_name, 0) + count
+
+    # privacy filter: exclude low-count packages from public dashboard
+    MIN_PACKAGE_COUNT = 100
+    filtered_packages = {
+        k: v for k, v in package_counts.items() if v >= MIN_PACKAGE_COUNT
+    }
+    sorted_top_packages = dict(
+        sorted(filtered_packages.items(), key=lambda x: x[1], reverse=True)[:20]
+    )
+    top_packages = {
+        k: DashboardEventDetailV1(total=v) for k, v in sorted_top_packages.items()
+    }
+
     result = DashboardDataV1(
         last_updated=last_updated,
         downloads=categories["pkg"],
@@ -208,7 +235,7 @@ async def crunch_and_cache_dashboard_numbers(
         other_categories_downloads=other_categories,
         downloads_by_categories_v1=categories,
         installs=DashboardEventDetailV1(total=installation_count),
-        top_packages={},  # TODO: numbers are not reported yet
+        top_packages=top_packages,
         top_commands=top10_sorted_commands,
         github_org_stats=gh_org_stats,
     )

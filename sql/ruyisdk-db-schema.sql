@@ -63,6 +63,29 @@ CREATE TABLE `telemetry_aggregated_events` (
     KEY `idx_telemetry_aggregated_events_ctime_time_bucket_kind` (`created_at`, `time_bucket`, `kind`)
 ) ENGINE InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+CREATE TABLE `repo_telemetry_raw_uploads` (
+    `id` BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
+    `nonce` UUID NOT NULL COMMENT 'Nonce for server-side event de-duping',
+    `raw_events` JSON COMMENT 'The raw JSON payload',
+    `created_at` TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
+    `is_processed` BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Whether this row has been processed',
+    UNIQUE KEY `idx_repo_telemetry_raw_uploads_nonce` (`nonce`),
+    KEY `idx_repo_telemetry_raw_uploads_ctime_processed` (`created_at`, `is_processed`)
+) ENGINE InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `repo_telemetry_aggregated_events` (
+    `id` BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
+    `time_bucket` VARCHAR(255) NOT NULL,
+    `kind` VARCHAR(255) NOT NULL,
+    `pkg_name` VARCHAR(255) NOT NULL,
+    `pkg_version` VARCHAR(255) NOT NULL,
+    `host` VARCHAR(255) NOT NULL,
+    `count` INT NOT NULL,
+    `created_at` TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
+    KEY `idx_repo_telemetry_aggregated_events_ctime_time_bucket_kind` (`created_at`, `time_bucket`, `kind`),
+    KEY `idx_repo_telemetry_aggregated_events_pkg_name` (`pkg_name`)
+) ENGINE InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 CREATE TABLE `download_stats_daily_pypi` (
     `id` BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
     `name` VARCHAR(255) NOT NULL COMMENT 'The name of the PyPI package',

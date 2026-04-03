@@ -163,6 +163,54 @@ telemetry_aggregated_events = Table(
 )
 
 
+class ModelRepoTelemetryRawUpload(TypedDict):
+    id: NotRequired[int]
+    nonce: uuid.UUID
+    raw_events: Sequence[AggregatedTelemetryEvent]
+    created_at: NotRequired[datetime.datetime]
+    is_processed: bool
+
+
+repo_telemetry_raw_uploads = Table(
+    "repo_telemetry_raw_uploads",
+    metadata,
+    Column("id", BIGINT(), primary_key=True, autoincrement=True),
+    Column("nonce", UUID(), nullable=False),
+    Column("raw_events", JSON()),
+    Column(
+        "created_at", TIMESTAMP(timezone=False), server_default=func.current_timestamp()
+    ),
+    Column("is_processed", BOOLEAN(), nullable=False, default=False),
+)
+
+
+class ModelRepoTelemetryAggregatedEvent(TypedDict):
+    id: NotRequired[int]
+    time_bucket: str
+    kind: str
+    pkg_name: str
+    pkg_version: str
+    host: str
+    count: int
+    created_at: NotRequired[datetime.datetime]
+
+
+repo_telemetry_aggregated_events = Table(
+    "repo_telemetry_aggregated_events",
+    metadata,
+    Column("id", BIGINT(), primary_key=True, autoincrement=True),
+    Column("time_bucket", VARCHAR(255), nullable=False),
+    Column("kind", VARCHAR(255), nullable=False),
+    Column("pkg_name", VARCHAR(255), nullable=False),
+    Column("pkg_version", VARCHAR(255), nullable=False),
+    Column("host", VARCHAR(255), nullable=False),
+    Column("count", INT(), nullable=False),
+    Column(
+        "created_at", TIMESTAMP(timezone=False), server_default=func.current_timestamp()
+    ),
+)
+
+
 class ModelDownloadStatsDailyPyPI(TypedDict):
     id: NotRequired[int]
     name: str
